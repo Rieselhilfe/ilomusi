@@ -6,44 +6,28 @@ import modules
 
 
 class Action(abc.ABC):  # modifies a module
+    scope: str  # Module or Editor
     pos: base.Vec2d
 
     @abc.abstractmethod
-    def __init__(self, pos):
-        self.pos = pos
-
-    @abc.abstractmethod
-    def do(self, mod: modules.Module):
+    def do(self, other):
         pass
 
     @abc.abstractmethod
-    def undo(self, mod: modules.Module):
+    def undo(self, other):
         pass
-
-    def type_test(self, val: Tuple[str, str]) -> bool:
-        if val[1] == "bool":
-            return val[0] == "False" or val[0] == "True"
-        elif val[1] == "int":
-            return val[0].isdigit()
-        elif val[1] == "char":
-            return len(val[0]) == 1
-        elif val[1] == "color":
-            return len(val[0]) > 2 and \
-                tuple(x.strip().isdigit() for x
-                      in val[0][1:-1].split(",")) == (True, True, True)
-        else:
-            print("invalid type:", val[1])
 
 
 class changeType(Action):
+    scope: str = "Module"
     target: str
     before: modules.Module
 
-    def __init__(self, pos, target):
+    def __init__(self, target):
         self.target = target
-        super().__init__(pos)
 
-    def do(self, mod):
+    def do(self, mod: modules.Module, pos: base.Vec2d) -> modules.Module:
+        self.pos = pos
         self.before = mod
         return modules.name_to_module(self.target, self.pos)
 
@@ -57,21 +41,22 @@ class changeType(Action):
 
 
 class changeProperty(Action):
-    changes: Set[Tuple[str, str]] = dict()
+    scope: str = "Module"
+    changes: [Tuple[str, str]] = dict()
     before = None
     after = None
 
-    def __init__(self, pos, changes):
+    def __init__(self, changes):
         self.changes = changes
-        super().__init__(pos)
 
-    def do(self, mod: modules.Module) -> modules.Module:
+    def do(self, mod: modules.Module, pos: base.Vec2d) -> modules.Module:
+        self.pos = pos
         self.before = mod_props = mod.get_exposed_props()
-        for name, change in self.changes:
+        for name, change in self.changes.items():
             if name in mod_props and self.type_test(change):
                 mod_props[name] = change
             else:
-                return None
+                return mod
         self.after = mod_props
         mod.set_exposed_props(mod_props)
         return mod
@@ -86,3 +71,32 @@ class changeProperty(Action):
             print("tried to undo, but the target props are",
                   self.before, "while the current are", props)
             return None
+
+    def type_test(self, val: Tuple[str, str]) -> bool:
+        if val[1] == "bool":
+            return val[0] == "f" or val[0] == "t"
+        elif val[1] == "int":
+            return val[0].isdigit()
+        elif val[1] == "char":
+            return len(val[0]) == 1
+        elif val[1] == "color":
+            return len(val[0]) > 2 and \
+                tuple(x.strip().isdigit() for x
+                      in val[0][1:-1].split(",")) == (True, True, True)
+        else:
+            print("invalid type:", val[1])
+
+
+class moveCursor(Action):
+    scope: str = "Editor"
+    direction: base.Vec2d
+
+    def __init__(self, direction: base.Vec2d):
+        self.direction = direction
+
+    def do(self, ed: 'editor.Editor', boundaries: int):
+        ed.move_cursor(self.direction, boundaries)
+        return ed
+
+    def undo(self, ed):
+        return ed
