@@ -4,9 +4,7 @@ import abc
 import base
 import pulse
 import tcod
-import time
-
-import rtmidi
+import midi
 
 
 class Module(abc.ABC):
@@ -166,34 +164,24 @@ class Emitter(Module):
         self.interval = int(props["interval"])
         self.offset = int(props["offset"])
 
-# class Output(Module):
-#     symbol = ("u", base.cols["source_fg"], base.cols["bg"])
-#     name = "Output"
-#     def __init__(self, pos, symbol=None):
-#         self.midiout = rtmidi.MidiOut()
-#         self.available_ports = self.midiout.get_ports()
-#         print(self.available_ports)
-#         self.midiout.open_port(1)
-#         return super().__init__(pos, symbol)
+class Output(Module):
+    symbol = ("u", base.cols["source_fg"], base.cols["bg"])
+    name = "Output"
+    def __init__(self, pos, symbol=None):
+         return super().__init__(pos, symbol)
 
-#     def on_pulse(self, p):
-#         note_on = [0x90, 60, 112] # channel 1, middle C, velocity 112
-#         note_off = [0x80, 60, 0]
-#         self.midiout.send_message(note_on)
-#         time.sleep(0.5)
-#         self.midiout.send_message(note_off)
-#         time.sleep(0.1)
-#         return []
+    def on_pulse(self, p):
+        midi.midi.play_note(80, duration=0.05);
+        return []
+
+    def get_exposed_props(self):
+        return super().get_exposed_props()
+
+    def set_exposed_props(self, props):
+        pass
 
 
-#     def get_exposed_props(self):
-#         return super().get_exposed_props()
-
-#     def set_exposed_props(self, props):
-#         pass
-
-
-names = ["spreader", "emitter", "empty"]
+names = ["spreader", "emitter", "empty", "output"]
 
 
 def name_to_module(name: str, pos: base.Vec2d) -> Module:
@@ -204,8 +192,8 @@ def name_to_module(name: str, pos: base.Vec2d) -> Module:
         return Emitter(pos)
     elif name == "empty":
         return Empty(pos)
-    # elif name == "output":
-    #     return Output(pos)
+    elif name == "output":
+        return Output(pos)
     else:
         print("invalid module name", name)
         return None
